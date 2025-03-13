@@ -26,12 +26,14 @@ class DifferentialEvolution:
     def evaluate(self, candidate):
         penalty = 0
         for i, shape in enumerate(candidate):
-            if shape['x'] < 0 or shape['x'] > self.sheet_width or shape['y'] < 0 or shape['y'] > self.sheet_height:
-                penalty += 100  # Penaliza formas fora da área
+            if shape['x'] < 0 or shape['x'] + shape.get('largura', shape.get('r', 0) * 2) > self.sheet_width:
+                penalty += 100  # Penaliza formas fora da largura
+            if shape['y'] < 0 or shape['y'] + shape.get('altura', shape.get('r', 0) * 2) > self.sheet_height:
+                penalty += 100  # Penaliza formas fora da altura
             
             for j, other in enumerate(candidate):
                 if i != j and self.overlaps(shape, other):
-                    penalty += 50  # Penaliza sobreposição
+                    penalty += 200  # Penaliza sobreposição
         
         return penalty
     
@@ -46,6 +48,14 @@ class DifferentialEvolution:
                         shape1['y'] + shape1['altura'] <= shape2['y'] or
                         shape2['y'] + shape2['altura'] <= shape1['y'])
         
+        if shape1['tipo'] == 'circular' or shape2['tipo'] == 'circular':
+            circ = shape1 if shape1['tipo'] == 'circular' else shape2
+            rect = shape2 if shape1['tipo'] == 'circular' else shape1
+            closest_x = max(rect['x'], min(circ['x'], rect['x'] + rect['largura']))
+            closest_y = max(rect['y'], min(circ['y'], rect['y'] + rect['altura']))
+            distance = np.sqrt((circ['x'] - closest_x) ** 2 + (circ['y'] - closest_y) ** 2)
+            return distance < circ['r']
+        
         return False
     
     def mutate(self, target_index):
@@ -53,8 +63,8 @@ class DifferentialEvolution:
         a, b, c = random.sample(idxs, 3)
         mutant = []
         for i in range(len(self.recortes_disponiveis)):
-            new_x = self.population[a][i]['x'] + 0.8 * (self.population[b][i]['x'] - self.population[c][i]['x'])
-            new_y = self.population[a][i]['y'] + 0.8 * (self.population[b][i]['y'] - self.population[c][i]['y'])
+            new_x = min(max(self.population[a][i]['x'] + 0.8 * (self.population[b][i]['x'] - self.population[c][i]['x']), 0), self.sheet_width - self.recortes_disponiveis[i].get('largura', self.recortes_disponiveis[i].get('r', 0) * 2))
+            new_y = min(max(self.population[a][i]['y'] + 0.8 * (self.population[b][i]['y'] - self.population[c][i]['y']), 0), self.sheet_height - self.recortes_disponiveis[i].get('altura', self.recortes_disponiveis[i].get('r', 0) * 2))
             mutant.append({**self.recortes_disponiveis[i], "x": new_x, "y": new_y})
         return mutant
     
@@ -81,7 +91,7 @@ class DifferentialEvolution:
                 new_population.append(self.select(self.population[i], trial))
             self.population = new_population
         return min(self.population, key=self.evaluate)
-    
+
     def plot_layout(self, layout):
         fig, ax = plt.subplots()
         ax.set_xlim(0, self.sheet_width)
@@ -103,11 +113,8 @@ class DifferentialEvolution:
         
         plt.gca().set_aspect('equal', adjustable='box')
         plt.show()
-    
+
     def optimize_and_display(self):
-        """
-        Executa a otimização, exibe o layout final e retorna o melhor layout encontrado.
-        """
         print("Executando otimização com Evolução Diferencial...")
         self.optimized_layout = self.run()
         print("Otimização concluída.")
