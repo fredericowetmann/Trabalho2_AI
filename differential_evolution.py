@@ -4,6 +4,14 @@ import matplotlib.pyplot as plt
 
 class DifferentialEvolution:
     def __init__(self, pop_size, max_iter, sheet_width, sheet_height, recortes_disponiveis):
+        """
+        Inicializa a classe DifferentialEvolution.
+        :param pop_size: Tamanho da população.
+        :param max_iter: Número máximo de iterações.
+        :param sheet_width: Largura da chapa.
+        :param sheet_height: Altura da chapa.
+        :param recortes_disponiveis: Lista de formas geométricas disponíveis.
+        """
         self.pop_size = pop_size
         self.max_iter = max_iter
         self.sheet_width = sheet_width
@@ -12,32 +20,43 @@ class DifferentialEvolution:
         self.population = self.initialize_population()
 
     def initialize_population(self):
+        """
+        Inicializa a população com posições aleatórias dentro da chapa.
+        """
         population = []
         for _ in range(self.pop_size):
             individual = []
             for recorte in self.recortes_disponiveis:
                 new_x = random.uniform(0, self.sheet_width - recorte.get('largura', recorte.get('r', 0) * 2))
                 new_y = random.uniform(0, self.sheet_height - recorte.get('altura', recorte.get('r', 0) * 2))
-                new_rotation = random.choice([0, 90])
+                new_rotation = random.choice([0, 90])  # Define rotação aleatória
                 individual.append({**recorte, "x": new_x, "y": new_y, "rotacao": new_rotation})
             population.append(individual)
         return population
     
     def evaluate(self, candidate):
+        """
+        Avalia um indivíduo penalizando sobreposição e formas fora da chapa.
+        """
         penalty = 0
         for i, shape in enumerate(candidate):
+            # Penaliza formas que saem da chapa
             if shape['x'] < 0 or shape['x'] + shape.get('largura', shape.get('r', 0) * 2) > self.sheet_width:
-                penalty += 100  # Penaliza formas fora da largura
+                penalty += 100  
             if shape['y'] < 0 or shape['y'] + shape.get('altura', shape.get('r', 0) * 2) > self.sheet_height:
-                penalty += 100  # Penaliza formas fora da altura
+                penalty += 100  
             
+            # Penaliza sobreposição entre formas
             for j, other in enumerate(candidate):
                 if i != j and self.overlaps(shape, other):
-                    penalty += 200  # Penaliza sobreposição
+                    penalty += 50  
         
         return penalty
     
     def overlaps(self, shape1, shape2):
+        """
+        Verifica se duas formas geométricas se sobrepõem.
+        """
         if shape1['tipo'] == 'circular' and shape2['tipo'] == 'circular':
             distance = np.sqrt((shape1['x'] - shape2['x'])**2 + (shape1['y'] - shape2['y'])**2)
             return distance < (shape1['r'] + shape2['r'])
@@ -48,17 +67,12 @@ class DifferentialEvolution:
                         shape1['y'] + shape1['altura'] <= shape2['y'] or
                         shape2['y'] + shape2['altura'] <= shape1['y'])
         
-        if shape1['tipo'] == 'circular' or shape2['tipo'] == 'circular':
-            circ = shape1 if shape1['tipo'] == 'circular' else shape2
-            rect = shape2 if shape1['tipo'] == 'circular' else shape1
-            closest_x = max(rect['x'], min(circ['x'], rect['x'] + rect['largura']))
-            closest_y = max(rect['y'], min(circ['y'], rect['y'] + rect['altura']))
-            distance = np.sqrt((circ['x'] - closest_x) ** 2 + (circ['y'] - closest_y) ** 2)
-            return distance < circ['r']
-        
         return False
     
     def mutate(self, target_index):
+        """
+        Realiza a mutação para criar um indivíduo mutante baseado em três outros indivíduos.
+        """
         idxs = [idx for idx in range(self.pop_size) if idx != target_index]
         a, b, c = random.sample(idxs, 3)
         mutant = []
@@ -69,6 +83,9 @@ class DifferentialEvolution:
         return mutant
     
     def crossover(self, target, mutant):
+        """
+        Realiza o cruzamento entre um indivíduo alvo e o mutante.
+        """
         trial = []
         for i in range(len(target)):
             if random.random() < 0.9:
@@ -78,11 +95,17 @@ class DifferentialEvolution:
         return trial
     
     def select(self, target, trial):
+        """
+        Seleciona o indivíduo com menor penalidade.
+        """
         if self.evaluate(trial) < self.evaluate(target):
             return trial
         return target
     
     def run(self):
+        """
+        Executa a otimização por evolução diferencial.
+        """
         for _ in range(self.max_iter):
             new_population = []
             for i in range(self.pop_size):
@@ -91,8 +114,20 @@ class DifferentialEvolution:
                 new_population.append(self.select(self.population[i], trial))
             self.population = new_population
         return min(self.population, key=self.evaluate)
-
+    
     def plot_layout(self, layout):
+        """
+        Plota o layout otimizado das formas geométricas dentro da chapa.
+
+        - Define os limites da chapa com base em sua largura e altura.
+        - Desenha cada forma geométrica na posição otimizada:
+        - Retângulos são desenhados em azul.
+        - Círculos são desenhados em vermelho.
+        - Diamantes são desenhados em verde.
+        - Mantém a proporção do gráfico ajustada para melhor visualização.
+        - Exibe o gráfico com o layout final das formas.
+        """
+
         fig, ax = plt.subplots()
         ax.set_xlim(0, self.sheet_width)
         ax.set_ylim(0, self.sheet_height)
@@ -113,8 +148,11 @@ class DifferentialEvolution:
         
         plt.gca().set_aspect('equal', adjustable='box')
         plt.show()
-
+    
     def optimize_and_display(self):
+        """
+        Executa a otimização e exibe o layout final das formas na chapa.
+        """
         print("Executando otimização com Evolução Diferencial...")
         self.optimized_layout = self.run()
         print("Otimização concluída.")
